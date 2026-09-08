@@ -45,6 +45,8 @@ def lock(path, timeout=120):
 
 
 def main():
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     root = Path(__file__).resolve().parent.parent
     manifest = json.loads((root / "wheelhouse/manifest.json").read_text(encoding="utf-8"))
     wheel = root / "wheelhouse" / manifest["wheel"]
@@ -66,7 +68,7 @@ def main():
             try:
                 venv.EnvBuilder(with_pip=True).create(target)
                 subprocess.run(
-                    [str(python), "-I", "-m", "pip", "--isolated", "--disable-pip-version-check",
+                    [str(python), "-I", "-X", "utf8", "-m", "pip", "--isolated", "--disable-pip-version-check",
                      "install", "--no-index", "--no-deps", "--no-cache-dir", "--require-hashes",
                      "--find-links", str(root / "wheelhouse"), "-r", str(root / "wheelhouse/requirements.txt")],
                     check=True, stdout=sys.stderr, stderr=sys.stderr, stdin=subprocess.DEVNULL)

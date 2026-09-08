@@ -38,3 +38,12 @@
 - [pip 从本地包安装](https://pip.pypa.io/en/stable/user_guide/#installing-from-local-packages)：离线 wheelhouse 与禁止索引查询的安装路径。
 - [Python venv](https://docs.python.org/3/library/venv.html)：在目标机器创建专用 Python 环境，运行时使用环境中的解释器。
 - [npm package.json](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/)：包内文件、命令入口、平台依赖及发布配置。该页面已在需求调研阶段查阅。
+
+
+## v0.1 实现补充资料（2026-09-08 核对）
+
+- [Claude CLI reference](https://code.claude.com/docs/en/cli-reference)：独立 session、JSON 输出、--settings 与 --safe-mode。后者保留认证/模型/权限，并禁用自定义上下文；不等同于 OS 沙箱。
+- [Claude 嵌套启动限制问题记录](https://github.com/anthropics/claude-code/issues/25803)：官方仓库的问题记录用于识别已知运行限制，不作为所有版本行为保证。
+- [Windows ResumeThread](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-resumethread)：进程先加入 Job，再恢复线程。
+- [GitHub runner 范围](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)：Windows x64、Ubuntu x64 / ARM64 CI 标签。
+- [Wheel 格式](https://packaging.python.org/en/latest/specifications/binary-distribution-format/) 与 [pip 本地安装](https://pip.pypa.io/en/stable/user_guide/#installing-from-local-packages)：离线纯 Python 分发。

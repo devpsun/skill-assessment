@@ -11,7 +11,8 @@ import tempfile
 from pathlib import Path
 
 from . import __version__
-from .common import AssessmentError, read_json
+from .common import AssessmentError, read_json, write_json
+from .contracts import NAMES, schema
 from .config import load_suite
 from .process import run_process
 from .reporting import render
@@ -82,6 +83,9 @@ def build_parser():
     parser = argparse.ArgumentParser(prog="skill-assessment", description="Evaluate Skills with local evidence and optional Agent grading.")
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
+    export = commands.add_parser("schema", help="Export an offline JSON Schema contract")
+    export.add_argument("name", choices=NAMES)
+    export.add_argument("--output")
     d = commands.add_parser("doctor", help="Inspect local runtime without a model call")
     d.add_argument("--agent", default="claude")
     d.add_argument("--require-agent", action="store_true")
@@ -131,7 +135,13 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
         code = 0
-        if args.command == "doctor":
+        if args.command == "schema":
+            value = schema(args.name)
+            if args.output:
+                path = Path(args.output).resolve()
+                write_json(path, value)
+                value = {"schema": args.name, "path": str(path)}
+        elif args.command == "doctor":
             value, code = doctor(args.agent, args.require_agent)
         elif args.command == "check":
             value = check_skill(args.path, args.strict)

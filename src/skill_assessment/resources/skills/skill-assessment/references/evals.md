@@ -16,6 +16,10 @@ The engine is either:
   only. model is optional; omitted means use the Agent's existing model.
   allowed_tools is an explicit array of tools the user wants to permit without
   interaction. Do not add blanket permission bypass flags.
+  settings_file optionally references an existing Claude settings file relative
+  to eval.yaml; the Agent reads it directly without copying it into evidence.
+  This is useful for existing project-scoped service settings. Never ask for
+  credentials or paste the settings content into a case.
 - type: local. command is an argument array with {input_file} and {output_file}.
   {python}, {workspace}, and {config_dir} are supported placeholders.
   parameters is an optional object passed to the adapter.

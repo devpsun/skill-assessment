@@ -14,7 +14,7 @@ from .common import AssessmentError, canonical, contained, digest, file_hash, re
 from .engines import execute
 from .judges import grade
 from .process import check_cancelled
-from .reporting import benchmark_summary, exit_code, render, summarize
+from .reporting import benchmark_summary, exit_code, render, summarize, validate_result
 from .validation import check_skill, has_errors
 from .workspace import archive_artifacts, copy_skill
 
@@ -22,8 +22,8 @@ from .workspace import archive_artifacts, copy_skill
 def run_suite(suite, output=None, include=None, repeat=1, benchmark=False,
               parent=None, failed_only=False, change_note=None, formats=None, strict=False):
     parent_result = read_json(parent) if parent else None
-    if parent_result and parent_result.get("schema_version") != "1":
-        raise AssessmentError("Unsupported parent result schema")
+    if parent_result is not None:
+        validate_result(parent_result)
     failed_ids = ({t["case_id"] for t in parent_result["trials"] if t["status"] != "passed"}
                   if parent_result and failed_only else None)
     if failed_only and not parent_result:
@@ -37,6 +37,8 @@ def run_suite(suite, output=None, include=None, repeat=1, benchmark=False,
     now = dt.datetime.now(dt.timezone.utc)
     run_id = now.strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     root = Path(output).expanduser().resolve() if output else suite.skill.parent / ".skill-assessment-runs"
+    if root == suite.skill:
+        raise AssessmentError("Output parent must differ from the target Skill root")
     directory = root / run_id
     directory.mkdir(parents=True, exist_ok=False)
     result = {"schema_version": "1", "tool_version": __version__, "run_id": run_id,
@@ -65,6 +67,7 @@ def run_suite(suite, output=None, include=None, repeat=1, benchmark=False,
 
     def save():
         result["summary"] = summarize(result["trials"])
+        result["quality"] = summarize([t for t in result["trials"] if t["variant"] == "with_skill"])
         write_json(directory / "result.json", result)
 
     event("run_started")
@@ -78,7 +81,8 @@ def run_suite(suite, output=None, include=None, repeat=1, benchmark=False,
                 trial["error"] = "Static validation blocked dynamic execution"
         else:
             snapshots = directory / "snapshots"
-            hidden = [suite.path, root, *[Path(c["_path"]) for c in suite.cases]]
+            excluded_output = root if root.is_relative_to(suite.skill) else directory
+            hidden = [suite.path, excluded_output, *[Path(c["_path"]) for c in suite.cases]]
             for c in suite.cases:
                 j = c.get("judge", suite.data.get("judge"))
                 if j["type"] == "script":
@@ -113,6 +117,7 @@ def run_suite(suite, output=None, include=None, repeat=1, benchmark=False,
                     judge["path"] = str(dest.resolve())
                 effective_engine = case.get("engine", suite.data["engine"])
                 fingerprint = digest({"input": case["input"], "fixtures": fixture_hashes,
+                                      "tool_version": __version__,
                                       "judge": case.get("judge", suite.data.get("judge")),
                                       "script_hash": script_hash, "engine": effective_engine,
                                       "defaults": suite.data.get("defaults", {}),
@@ -147,10 +152,17 @@ def run_suite(suite, output=None, include=None, repeat=1, benchmark=False,
                            "parameters": engine.get("parameters", {}), "limits": limits}
                 event("trial_started", trial_id=trial["trial_id"])
                 trial["engine_type"] = engine["type"]
+                trial["evidence"] = {
+                    "request": f"trials/{trial['trial_id']}/execution/request.json",
+                    "stdout": f"trials/{trial['trial_id']}/execution/stdout.txt",
+                    "stderr": f"trials/{trial['trial_id']}/execution/stderr.txt"}
                 try:
                     response = execute(engine, request, trial_dir / "execution", suite.path.parent)
+                    trial["output_excerpt"] = response["final_output"][:4000]
+                    trial["evidence"]["response"] = f"trials/{trial['trial_id']}/execution/response.json"
                     trial["execution"] = {k: response.get(k) for k in
-                                          ("duration_seconds", "usage", "model", "session_id", "isolation")}
+                                          ("duration_seconds", "usage", "model", "session_id", "isolation",
+                                           "agent_version", "cost_usd", "model_usage")}
                     artifacts = trial_dir / "artifacts"
                     artifacts.mkdir()
                     trial["artifacts"] = archive_artifacts(workspace, artifacts, response.get("artifacts", []))

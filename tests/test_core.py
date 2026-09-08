@@ -60,6 +60,40 @@ class CoreTests(unittest.TestCase):
             with self.subTest(text=text), self.assertRaises(AssessmentError):
                 yamlio.loads(text)
 
+    def test_json_compatible_yaml(self):
+        self.assertEqual(yamlio.loads("date: 2026-01-01")["date"], "2026-01-01")
+        for text in ("value: .inf", "value: .nan", "value: !!set {a: null}"):
+            with self.subTest(text=text), self.assertRaises(AssessmentError):
+                yamlio.loads(text)
+
+    def test_strict_json_input(self):
+        path = self.base / "invalid.json"
+        for text in ('{"a":1,"a":2}', '{"a":1e999}', '{"a":NaN}'):
+            path.write_text(text)
+            with self.subTest(text=text), self.assertRaises(AssessmentError):
+                read_json(path)
+
+    def test_nested_boolean_is_not_number(self):
+        self.case["input"]["prompt"] = '{"value":true}'
+        self.case["judge"]["assertions"] = [{"type": "json_equals", "pointer": "", "value": {"value": 1}}]
+        _, result, code = self.run_case()
+        self.assertEqual(code, 1, result)
+
+    def test_case_ids_are_windows_portable(self):
+        self.case["id"] = "CON"
+        with self.assertRaises(AssessmentError):
+            self.suite()
+
+    def test_tampered_report_summary_is_rejected(self):
+        directory, result, _ = self.run_case()
+        result["summary"]["planned"] = 99
+        with self.assertRaises(AssessmentError):
+            render(result, directory, ["html"])
+
+    def test_output_parent_can_contain_target_skill(self):
+        _, result, code = run_suite(self.suite(), output=self.base)
+        self.assertEqual(code, 0, result)
+
     def test_yaml_encoding_and_metadata_types(self):
         self.entry.write_text("\ufeff---\r\nname: demo\r\ndescription: ok\r\nmetadata:\r\n  version: 1\r\n---\r\nbody", encoding="utf-8")
         self.assertIn("SPEC009", [x["rule_id"] for x in check_skill(self.skill)["issues"]])

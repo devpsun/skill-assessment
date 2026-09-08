@@ -87,7 +87,7 @@ def check_skill(directory, strict=False):
         val = meta["metadata"]
         if not isinstance(val, dict) or not all(isinstance(v, str) for v in val.values()):
             add("SPEC009", "error", "metadata must map strings to strings", line_for("metadata"))
-    for key in meta.keys() - FIELDS:
+    for key in sorted(meta.keys() - FIELDS):
         if key not in EXTENSIONS or strict:
             add("EXT001", "error" if strict else "warning", f"Non-standard frontmatter field: {key}",
                 line_for(key), "engineering")

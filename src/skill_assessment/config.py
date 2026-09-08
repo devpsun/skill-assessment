@@ -18,7 +18,7 @@ class Suite:
 
 def engine_config(value, label="engine"):
     object_keys(value, {"type", "command", "model", "allowed_tools", "parameters",
-                        "artifacts", "isolation"}, {"type"}, label)
+                        "artifacts", "isolation", "settings_file"}, {"type"}, label)
     if value["type"] not in ("claude_code", "local"):
         raise AssessmentError(f"{label}.type: supported engines are claude_code and local")
     if value["type"] == "local":
@@ -26,7 +26,7 @@ def engine_config(value, label="engine"):
         joined = " ".join(value["command"])
         if "{input_file}" not in joined or "{output_file}" not in joined:
             raise AssessmentError("Local command must include {input_file} and {output_file}")
-        if any(k in value for k in ("model", "allowed_tools")):
+        if any(k in value for k in ("model", "allowed_tools", "settings_file")):
             raise AssessmentError("Local engine uses parameters, not model/allowed_tools fields")
     elif "command" in value:
         strings(value["command"], f"{label}.command", True)
@@ -36,6 +36,8 @@ def engine_config(value, label="engine"):
         raise AssessmentError("Claude engine does not support local adapter parameters")
     if "model" in value and not isinstance(value["model"], str):
         raise AssessmentError("engine.model must be a string")
+    if "settings_file" in value and (not isinstance(value["settings_file"], str) or not value["settings_file"]):
+        raise AssessmentError("engine.settings_file must be a non-empty path")
     if "allowed_tools" in value:
         strings(value["allowed_tools"], f"{label}.allowed_tools")
     if "parameters" in value and not isinstance(value["parameters"], dict):
@@ -68,6 +70,8 @@ def assertion_config(value):
         ptr = value["pointer"]
         if not isinstance(ptr, str) or (ptr and not ptr.startswith("/")):
             raise AssessmentError("JSON pointer must be empty or start with /")
+        if re.search(r"~(?![01])", ptr):
+            raise AssessmentError("Invalid JSON pointer escape; use ~0 or ~1")
     if kind in ("contains", "not_contains", "regex", "file_contains"):
         if not isinstance(value["value"], str) or not value["value"]:
             raise AssessmentError(f"{kind}.value must be a non-empty string")
@@ -162,9 +166,10 @@ def load_suite(target):
         cid = case["id"]
         if not isinstance(cid, str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}", cid):
             raise AssessmentError(f"Invalid case id: {cid}")
-        if cid in ids:
+        relative_path(cid)
+        if cid.casefold() in ids:
             raise AssessmentError(f"Duplicate case id: {cid}")
-        ids.add(cid)
+        ids.add(cid.casefold())
         object_keys(case["input"], {"prompt"}, {"prompt"}, f"{cid}.input")
         if not isinstance(case["input"]["prompt"], str) or not case["input"]["prompt"].strip():
             raise AssessmentError(f"{cid}: input.prompt must be non-empty text")

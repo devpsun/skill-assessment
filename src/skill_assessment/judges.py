@@ -17,7 +17,7 @@ def pointer_get(obj, pointer):
     for token in pointer.split("/")[1:]:
         token = token.replace("~1", "/").replace("~0", "~")
         if isinstance(obj, list):
-            if not token.isdigit():
+            if not re.fullmatch(r"0|[1-9][0-9]*", token):
                 raise KeyError(token)
             obj = obj[int(token)]
         elif isinstance(obj, dict):
@@ -25,6 +25,16 @@ def pointer_get(obj, pointer):
         else:
             raise KeyError(token)
     return obj
+
+
+def json_equal(left, right):
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return left.keys() == right.keys() and all(json_equal(left[k], right[k]) for k in left)
+    if isinstance(left, list):
+        return len(left) == len(right) and all(json_equal(a, b) for a, b in zip(left, right))
+    return left == right
 
 
 def rule_grade(assertions, output, artifacts):
@@ -55,7 +65,7 @@ def rule_grade(assertions, output, artifacts):
                 evidence["pattern"] = assertion["value"]
             elif kind in ("json_equals", "file_json_equals"):
                 actual = pointer_get(json.loads(text), assertion["pointer"])
-                passed = type(actual) is type(assertion["value"]) and actual == assertion["value"]
+                passed = json_equal(actual, assertion["value"])
                 evidence.update(pointer=assertion["pointer"], expected=assertion["value"], actual=actual)
         except (FileNotFoundError, UnicodeError, ValueError, KeyError, IndexError) as exc:
             evidence["reason"] = str(exc)

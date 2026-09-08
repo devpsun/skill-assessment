@@ -7,7 +7,7 @@ from pathlib import Path
 from urllib.parse import quote
 from xml.etree import ElementTree as ET
 
-from .common import AssessmentError
+from .common import AssessmentError, relative_path
 
 STATUSES = ("passed", "failed", "execution_error", "judge_error", "skipped", "cancelled")
 
@@ -50,15 +50,39 @@ def benchmark_summary(trials):
             if valid else None}
 
 
-def render(result, directory, formats):
-    if result.get("schema_version") != "1" or not isinstance(result.get("trials"), list):
+def validate_result(result):
+    if not isinstance(result, dict) or result.get("schema_version") != "1" or not isinstance(result.get("trials"), list):
         raise AssessmentError("Unsupported or invalid result.json")
+    if not isinstance(result.get("run_id"), str) or result.get("status") not in ("running", "passed", "failed", "error", "cancelled"):
+        raise AssessmentError("Invalid run identity or status")
+    ids = set()
+    for t in result["trials"]:
+        if (not isinstance(t, dict) or t.get("status") not in STATUSES
+                or t.get("variant") not in ("with_skill", "without_skill") or type(t.get("repeat")) is not int
+                or t["repeat"] < 1 or not isinstance(t.get("case_id"), str)):
+            raise AssessmentError("Invalid trial in result.json")
+        relative_path(t.get("trial_id"))
+        if "/" in t["trial_id"] or t["trial_id"] in ids:
+            raise AssessmentError("Invalid or duplicate trial_id")
+        ids.add(t["trial_id"])
+        for artifact in t.get("artifacts", []):
+            relative_path(artifact.get("path"))
+        for path in t.get("evidence", {}).values():
+            relative_path(path)
+    if result.get("summary") != summarize(result["trials"]):
+        raise AssessmentError("Result summary contradicts its trials")
+    return result
+
+
+def render(result, directory, formats):
+    validate_result(result)
     directory = Path(directory)
     summary = result["summary"]
+    quality = summarize([t for t in result["trials"] if t["variant"] == "with_skill"])
     lines = [f"# Skill assessment — {result['run_id']}", "",
              f"Status: {result['status']}", "",
              f"Planned: {summary['planned']} · Executed: {summary['executed']} · "
-             f"Pass rate: {summary['pass_rate']} · Scoring coverage: {summary['scoring_coverage']}", "",
+             f"Target pass rate: {quality['pass_rate']} · Target scoring coverage: {quality['scoring_coverage']}", "",
              "## Static checks", ""]
     issues = result.get("static", {}).get("issues", [])
     lines.extend(f"- {i['severity']} {i['rule_id']}: {i['message']}" for i in issues)
@@ -70,6 +94,9 @@ def render(result, directory, formats):
                       f"Status: {t['status']}", ""])
         if t.get("error"):
             lines.extend([f"Error: {t['error']}", ""])
+        for name, target in t.get("evidence", {}).items():
+            if (directory / target).is_file():
+                lines.append(f"- Evidence: [{name}]({quote(target, safe='/')})")
         for a in t.get("grading", {}).get("assertions", []):
             lines.append(f"- {'PASS' if a['passed'] else 'FAIL'} {a.get('id', '')}: "
                          f"{json.dumps(a.get('evidence'), ensure_ascii=False)}")
@@ -90,6 +117,9 @@ def render(result, directory, formats):
         for t in result["trials"]:
             data = html.escape(json.dumps(t, ensure_ascii=False, indent=2))
             links = []
+            for name, target in t.get("evidence", {}).items():
+                if (directory / target).is_file():
+                    links.append(f'<a href="{html.escape(quote(target, safe="/"), quote=True)}">{html.escape(name)}</a>')
             for a in t.get("artifacts", []):
                 target = quote(f"trials/{t['trial_id']}/artifacts/{a['path']}", safe="/")
                 links.append(f'<a href="{html.escape(target, quote=True)}">{html.escape(a["path"])}</a>')
@@ -104,19 +134,22 @@ def render(result, directory, formats):
                 'summary{cursor:pointer;font-weight:600}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px ui-monospace,monospace}'
                 'a{color:#2458be}</style>'
                 f'<h1>Skill assessment</h1><p>{html.escape(result["run_id"])}</p>'
-                f'<pre>{html.escape(json.dumps(summary, ensure_ascii=False, indent=2))}</pre>'
+                f'<h2>Target Skill quality</h2><pre>{html.escape(json.dumps(quality, ensure_ascii=False, indent=2))}</pre>'
                 f'<details><summary>Run metadata and static checks</summary><pre>{html.escape(markdown)}</pre></details>'
                 + "".join(blocks) + '</html>')
         (directory / "report.html").write_text(page, encoding="utf-8")
     if "junit" in formats:
+        baseline_failures = sum(t["variant"] == "without_skill" and t["status"] == "failed" for t in result["trials"])
         root = ET.Element("testsuite", name="skill-assessment", tests=str(len(result["trials"])),
-                          failures=str(summary["counts"]["failed"]),
+                          failures=str(quality["counts"]["failed"]),
                           errors=str(summary["counts"]["execution_error"] + summary["counts"]["judge_error"]),
-                          skipped=str(summary["counts"]["skipped"] + summary["counts"]["cancelled"]))
+                          skipped=str(summary["counts"]["skipped"] + summary["counts"]["cancelled"] + baseline_failures))
         for trial in result["trials"]:
             el = ET.SubElement(root, "testcase", name=trial["trial_id"], classname=trial["case_id"])
             state = trial["status"]
             if state != "passed":
                 tag = "failure" if state == "failed" else ("skipped" if state in ("skipped", "cancelled") else "error")
+                if trial["variant"] == "without_skill" and state == "failed":
+                    tag = "skipped"
                 ET.SubElement(el, tag, message=trial.get("error") or state).text = json.dumps(trial.get("grading", {}))
         ET.ElementTree(root).write(directory / "junit.xml", encoding="utf-8", xml_declaration=True)

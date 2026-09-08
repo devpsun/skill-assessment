@@ -28,11 +28,13 @@ def build(name=None):
     if name:
         package["name"] = name
     package.pop("scripts", None)
+    package.pop("private", None)
     (stage / "package.json").write_text(json.dumps(package, indent=2) + "\n", encoding="utf-8")
     for filename in ("README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"):
         shutil.copyfile(ROOT / filename, stage / filename)
     shutil.copytree(ROOT / "examples", stage / "examples",
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".skill-assessment-runs"))
+    shutil.copytree(ROOT / "docs", stage / "docs")
     filename = build_wheel(stage / "wheelhouse")
     digest = hashlib.sha256((stage / "wheelhouse" / filename).read_bytes()).hexdigest()
     (stage / "wheelhouse/manifest.json").write_text(json.dumps({"wheel": filename, "sha256": digest}) + "\n")

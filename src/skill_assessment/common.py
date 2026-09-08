@@ -33,10 +33,17 @@ def read_json(path, max_bytes=16 * 1024 * 1024):
     if path.stat().st_size > max_bytes:
         raise AssessmentError(f"JSON exceeds {max_bytes} bytes: {path}")
     try:
-        return json.loads(path.read_text(encoding="utf-8-sig"),
-                          parse_constant=lambda x: (_ for _ in ()).throw(
-                              ValueError(f"Non-finite JSON value: {x}")))
-    except (ValueError, UnicodeError) as exc:
+        def pairs(items):
+            result = {}
+            for key, value in items:
+                if key in result:
+                    raise ValueError(f"Duplicate JSON key: {key}")
+                result[key] = value
+            return result
+        value = json.loads(path.read_text(encoding="utf-8-sig"), object_pairs_hook=pairs)
+        canonical(value)
+        return value
+    except (ValueError, UnicodeError, RecursionError) as exc:
         raise AssessmentError(f"Invalid JSON {path}: {exc}") from exc
 
 

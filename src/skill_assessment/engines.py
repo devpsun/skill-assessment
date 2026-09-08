@@ -56,11 +56,18 @@ def execute(engine, request, log_dir, config_dir):
             "limitations": ["Local workspace is not an OS sandbox; declaration is not independently verified."]}
     else:
         command = engine.get("command", ["claude"])
+        version = run_process([*command, "--version"], workspace, log_dir / "version", min(timeout, 15))
+        agent_version = version["stdout"].strip()[:500] if version["returncode"] == 0 else None
         command = [*command, "-p", "--output-format", "json",
                    "--session-id", str(uuid.uuid4()),
                    "--max-turns", str(request["limits"].get("max_turns", 10))]
         if engine.get("model"):
             command.extend(["--model", engine["model"]])
+        if engine.get("settings_file"):
+            settings = (Path(config_dir) / engine["settings_file"]).resolve()
+            if not settings.is_file():
+                raise AssessmentError("Claude settings_file does not exist")
+            command.extend(["--settings", str(settings)])
         if engine.get("allowed_tools"):
             command.extend(["--allowedTools", ",".join(engine["allowed_tools"])])
         # Inherited mode deliberately keeps the user's service/model configuration.
@@ -75,6 +82,9 @@ def execute(engine, request, log_dir, config_dir):
         prompt = skill_text + "\n".join(m["content"] for m in request["messages"])
         process = run_process(command, workspace, log_dir, timeout, prompt)
         if process["status"] != "completed" or process["returncode"] != 0:
+            if "cannot be launched inside another" in process["stderr"]:
+                raise AssessmentError("Claude refused nested launch. Run this CLI in an independent terminal "
+                                      "using the same configured Agent; the tool preserves Claude's session guard.")
             raise AssessmentError(f"Claude execution {process['status']}; exit={process['returncode']}. See stderr.txt.")
         try:
             raw = json.loads(process["stdout"])
@@ -88,6 +98,8 @@ def execute(engine, request, log_dir, config_dir):
         response = {"protocol_version": "1", "status": "completed", "final_output": raw["result"],
                     "artifacts": engine.get("artifacts", []), "usage": raw.get("usage"),
                     "session_id": raw.get("session_id"), "model": raw.get("model"),
+                    "agent_version": agent_version, "cost_usd": raw.get("total_cost_usd"),
+                    "model_usage": raw.get("modelUsage"),
                     "isolation": {"controlled": controlled,
                                   "basis": "Claude safe-mode" if controlled else "inherited configuration",
                                   "limitations": ["Functional explicit Skill invocation; natural trigger behavior is not measured.",
