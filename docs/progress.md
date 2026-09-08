@@ -4,7 +4,7 @@
 
 ## 当前交付
 
-P0 基线已通过 PR #1 合并。v0.1 的 Python CLI、静态校验、执行器、评分、报告、复测与对照、配套 Skill、离线 npm 分发均已有实现。[实现 PR #2](https://github.com/devpsun/skill-assessment/pull/2) 完成最终跨平台验证后合并。
+P0 基线已通过 PR #1 合并。v0.1 的 Python CLI、静态校验、执行器、评分、报告、复测与对照、配套 Skill、离线 npm 分发均已有实现。完整实现与验收记录见 [PR #2](https://github.com/devpsun/skill-assessment/pull/2)。
 
 - Python 3.11+，Node 20+；纯 Python wheel 随 npm 包交付。
 - 内置 Claude Code CLI 和 local JSON 协议；七类 JSON Schema 可离线导出。
@@ -24,19 +24,19 @@ P0 基线已通过 PR #1 合并。v0.1 的 Python CLI、静态校验、执行器
 
 安装验证使用无法连接的 registry 配置、npm --offline、包内 pip --no-index 和 --require-hashes。它证明此工具安装路径不依赖 registry/PyPI 在线解析，不代表用网络抓包验证了整个 Agent 的所有外部访问。
 
-配套 Skill 通过 quick_validate，文档相对链接和 git whitespace 检查通过。测试无需安装额外 Python 库。
+配套 Skill 通过 quick_validate，文档相对链接和 git whitespace 检查通过；七类 schema CLI 导出、内部引用及 vendor 哈希清单检查通过。测试无需安装额外 Python 库。
 
-[已通过的五组 CI](https://github.com/devpsun/skill-assessment/actions/runs/34180665034) 对应提交 5023132，执行当时的 30 项测试：
+[最终五组 CI](https://github.com/devpsun/skill-assessment/actions/runs/34194665319) 对应提交 dcc031d，38 项测试与 Windows Git Bash smoke 全部达到预期：
 
 | 平台 | Python | 结果 |
 | --- | --- | --- |
-| Windows Server 2025 x64 | 3.11 | 30 通过 |
-| Windows Server 2025 x64 | 3.12 | 30 通过 |
-| Ubuntu x86_64 | 3.11 | 29 通过，Windows 专用项跳过 |
-| Ubuntu x86_64 | 3.12 | 29 通过，Windows 专用项跳过 |
-| Ubuntu 24.04 ARM64 | 3.12 | 29 通过，Windows 专用项跳过 |
+| Windows Server 2025 x64 | 3.11 | 38 通过，Git Bash smoke 通过 |
+| Windows Server 2025 x64 | 3.12 | 38 通过，Git Bash smoke 通过 |
+| Ubuntu x86_64 | 3.11 | 37 通过，Windows 专用项跳过 |
+| Ubuntu x86_64 | 3.12 | 37 通过，Windows 专用项跳过 |
+| Ubuntu 24.04 ARM64 | 3.12 | 37 通过，Windows 专用项跳过 |
 
-最终 38 项测试与新增 Windows Git Bash smoke 正在送入相同矩阵，完成后更新此记录。此前 Windows 首轮失败源于 npm 自身 wrapper 与普通 npm 包 shim 格式不同，已修复并在上述矩阵重跑通过。
+最终矩阵全部通过，并保留各平台构建的 npm tgz artifact。开发过程中修复了 Windows npm 自身 wrapper 的解析，并将短路径/完整路径的测试断言改为规范化路径比较。HTML 与 Markdown 均对动态证据转义。
 
 ## 需求验收边界
 
