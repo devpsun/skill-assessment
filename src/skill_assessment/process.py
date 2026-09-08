@@ -29,6 +29,12 @@ def executable_command(command):
     if os.name == "nt" and Path(found).suffix.lower() in (".cmd", ".bat"):
         text = Path(found).read_text(encoding="utf-8-sig")
         matches = re.findall(r'"%dp0%\\([^"\r\n]+\.(?:js|cjs|mjs))"', text, re.I)
+        # npm/npx ship a different bootstrap wrapper from ordinary npm package bins.
+        if not matches and Path(found).stem.lower() in ("npm", "npx"):
+            entry = Path(found).stem.lower() + "-cli.js"
+            candidate = Path(found).parent / "node_modules" / "npm" / "bin" / entry
+            if candidate.is_file() and entry in text:
+                matches = [str(candidate)]
         if not matches:
             raise AssessmentError("Unsupported cmd/bat wrapper. Configure its executable or Node script directly.")
         script = (Path(found).parent / matches[-1]).resolve()
