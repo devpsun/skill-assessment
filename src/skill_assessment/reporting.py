@@ -2,6 +2,7 @@
 
 import html
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from urllib.parse import quote
@@ -10,6 +11,11 @@ from xml.etree import ElementTree as ET
 from .common import AssessmentError, relative_path
 
 STATUSES = ("passed", "failed", "execution_error", "judge_error", "skipped", "cancelled")
+
+
+def md_text(value):
+    """Render evidence as text rather than active HTML/Markdown."""
+    return re.sub(r"([\\\x60*_{}\[\]()#+.!|>~-])", r"\\\1", html.escape(str(value)))
 
 
 def summarize(trials):
@@ -79,36 +85,36 @@ def render(result, directory, formats):
     directory = Path(directory)
     summary = result["summary"]
     quality = summarize([t for t in result["trials"] if t["variant"] == "with_skill"])
-    lines = [f"# Skill assessment — {result['run_id']}", "",
+    lines = [f"# Skill assessment — {md_text(result['run_id'])}", "",
              f"Status: {result['status']}", "",
              f"Planned: {summary['planned']} · Executed: {summary['executed']} · "
              f"Target pass rate: {quality['pass_rate']} · Target scoring coverage: {quality['scoring_coverage']}", "",
              "## Static checks", ""]
     issues = result.get("static", {}).get("issues", [])
-    lines.extend(f"- {i['severity']} {i['rule_id']}: {i['message']}" for i in issues)
+    lines.extend(f"- {md_text(i['severity'])} {md_text(i['rule_id'])}: {md_text(i['message'])}" for i in issues)
     if not issues:
         lines.append("No static issues recorded.")
     lines.extend(["", "## Trials", ""])
     for t in result["trials"]:
-        lines.extend([f"### {t['case_id']} / {t['variant']} / repeat {t['repeat']}", "",
+        lines.extend([f"### {md_text(t['case_id'])} / {t['variant']} / repeat {t['repeat']}", "",
                       f"Status: {t['status']}", ""])
         if t.get("error"):
-            lines.extend([f"Error: {t['error']}", ""])
+            lines.extend([f"Error: {md_text(t['error'])}", ""])
         for name, target in t.get("evidence", {}).items():
             if (directory / target).is_file():
-                lines.append(f"- Evidence: [{name}]({quote(target, safe='/')})")
+                lines.append(f"- Evidence: [{md_text(name)}]({quote(target, safe='/')})")
         for a in t.get("grading", {}).get("assertions", []):
-            lines.append(f"- {'PASS' if a['passed'] else 'FAIL'} {a.get('id', '')}: "
-                         f"{json.dumps(a.get('evidence'), ensure_ascii=False)}")
+            lines.append(f"- {'PASS' if a['passed'] else 'FAIL'} {md_text(a.get('id', ''))}: "
+                         f"{md_text(json.dumps(a.get('evidence'), ensure_ascii=False))}")
         for artifact in t.get("artifacts", []):
             target = f"trials/{t['trial_id']}/artifacts/{artifact['path']}"
-            lines.append(f"- Artifact: [{artifact['path']}]({quote(target, safe='/')})")
+            lines.append(f"- Artifact: [{md_text(artifact['path'])}]({quote(target, safe='/')})")
         lines.append("")
     if result.get("benchmark"):
         lines.extend(["## Benchmark", "", json.dumps(result["benchmark"], ensure_ascii=False, indent=2), ""])
     if result.get("comparison"):
         lines.extend(["## Previous run", "", json.dumps(result["comparison"], ensure_ascii=False, indent=2), ""])
-    lines.extend(["## Limitations", "", *[f"- {x}" for x in result.get("limitations", [])], ""])
+    lines.extend(["## Limitations", "", *[f"- {md_text(x)}" for x in result.get("limitations", [])], ""])
     markdown = "\n".join(lines)
     if "markdown" in formats:
         (directory / "report.md").write_text(markdown, encoding="utf-8")

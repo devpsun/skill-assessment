@@ -59,7 +59,7 @@ class ClaudeAdapterTests(unittest.TestCase):
         trial = result["trials"][0]
         invocation = json.loads((directory / "trials" / trial["trial_id"] / "artifacts/invocation.json").read_text(encoding="utf-8"))
         self.assertIn("--safe-mode", invocation["args"])
-        self.assertIn(str(self.settings), invocation["args"])
+        self.assertIn(str(self.settings.resolve()), invocation["args"])
         self.assertIn("SKILL.md", invocation["prompt"])
         self.assertNotIn("HIDDEN_EXPECTED", invocation["prompt"])
         self.assertEqual(trial["execution"]["agent_version"], "fixture-claude/1")

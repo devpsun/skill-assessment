@@ -214,6 +214,7 @@ class CoreTests(unittest.TestCase):
         page = (directory / "report.html").read_text()
         self.assertNotIn("<script>", page)
         self.assertIn("&lt;script&gt;", page)
+        self.assertNotIn("<script>", (directory / "report.md").read_text(encoding="utf-8"))
 
     def test_regex_timeout(self):
         self.case["input"]["prompt"] = "a" * 30 + "!"
