@@ -1,0 +1,48 @@
+name: Cross-platform verification
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            python: "3.11"
+          - os: windows-latest
+            python: "3.12"
+          - os: ubuntu-latest
+            python: "3.11"
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: ubuntu-24.04-arm
+            python: "3.12"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Unit, process and offline npm installation tests
+        run: python -m unittest discover -s tests -v
+      - name: Windows Git Bash entry point
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          node dist/npm/bin/skill-assessment.js --version
+          node dist/npm/bin/skill-assessment.js run ./examples/sales-summary --output ./dist/bash-smoke --json
+      - name: Retain installable npm package
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: npm-${{ matrix.os }}-py${{ matrix.python }}
+          path: dist/*.tgz
+          if-no-files-found: ignore

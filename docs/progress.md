@@ -1,49 +1,63 @@
 # 当前进度
 
-更新日期：2026-09-07。
+更新日期：2026-09-08。
 
-## 当前阶段
+## 当前交付
 
-**P0：需求与架构基线已编写。当前变更只包含文档，不包含可运行 CLI、npm 包或实际产品 Skill。**
+P0 基线已通过 PR #1 合并。v0.1 的 Python CLI、静态校验、执行器、评分、报告、复测与对照、配套 Skill、离线 npm 分发均已有实现。完整实现与验收记录见 [PR #2](https://github.com/devpsun/skill-assessment/pull/2)。
 
-开发分支：`docs/project-baseline`，基于初始提交 `cee0f007e0836016c16c13a653c5e457109cb122`。远端提交、PR 和合并状态应以 GitHub 实际记录为准；后续工作先核对所在分支。
+- Python 3.11+，Node 20+；纯 Python wheel 随 npm 包交付。
+- 内置 Claude Code CLI 和 local JSON 协议；七类 JSON Schema 可离线导出。
+- rule / script / agent 三类评分，JSON / Markdown / HTML / JUnit。
+- 输入与 Skill 快照、文件哈希、逐试验证据、事件日志、父运行和标准变化识别。
+- 评测不自动改写目标 Skill；配套 Skill 指导用户主动要求后的改进。
+- Windows Job Object、npm cmd shim 直接 Node 调用、协作取消。
+- 三个确定性示例与中文使用/构建/CI 文档；真实 Claude 验收脚本。
 
-## 已完成
+## 验证证据
 
-- 将讨论中的 13 项已确认要求与工程默认方案分开记录。
-- 明确 Python 核心、npm 内部分发、用户自装 Python、CLI + 配套 Skill。
-- 明确宿主/执行/评分角色允许采用同款或不同款 Agent，复用已有模型配置。
-- 明确评测优先，只有用户主动要求才开展目标 Skill 改进。
-- 定义 v0.1 范围、模块职责、CLI 语义、执行器契约草案、报告状态与统计口径。
-- 将 Windows 安装、真实 Agent、离线依赖、会话及评分标准隔离列入验收。
-- 固定参考项目 commit，记录上游资料差异。
-- 建立 P0-P6 路线图、A01-A10 验收目标、需求追踪和开发约定。
+本地 Linux x86_64 / Python 3.12.13 / Node 24.19.0 / npm 11.9.0：
 
-## 下一步：P1
+    python3 -m unittest discover -s tests -v
 
-1. 建立 Python 包入口、最小 CLI 和诊断功能，明确候选版本与依赖选择。
-2. 实现 npm launcher，调用本机 Python，在首次使用时从包内依赖准备专用环境。
-3. 编写 Python 构建脚本，生成可验证的 npm tgz；检查包内依赖完整性与版本一致性。
-4. 用模拟执行器验证协议进程行为，再在真实 Windows 上验证 Claude Code 启动、输入输出、超时和取消。
+38 项：37 通过，1 项 Windows 专用 shim 测试在 Linux 跳过。包括静态阻断、非法数据、隐藏断言隔离、产物、三类评分、报告、比较、假 Claude CLI 参数及权限拒绝、并发首次初始化、离线安装、校验和失败、缓存修复、超时/正常结束/取消后后代进程清理。
 
-可以按小步 PR 推进，不需要再次索取用户模型服务配置或固定业务 Skill。
+安装验证使用无法连接的 registry 配置、npm --offline、包内 pip --no-index 和 --require-hashes。它证明此工具安装路径不依赖 registry/PyPI 在线解析，不代表用网络抓包验证了整个 Agent 的所有外部访问。
 
-## 验证状态
+配套 Skill 通过 quick_validate，文档相对链接和 git whitespace 检查通过；七类 schema CLI 导出、内部引用及 vendor 哈希清单检查通过。测试无需安装额外 Python 库。
 
-| 项目 | 当前状态 |
+[最终五组 CI](https://github.com/devpsun/skill-assessment/actions/runs/34194665319) 对应提交 dcc031d，38 项测试与 Windows Git Bash smoke 全部达到预期：
+
+| 平台 | Python | 结果 |
+| --- | --- | --- |
+| Windows Server 2025 x64 | 3.11 | 38 通过，Git Bash smoke 通过 |
+| Windows Server 2025 x64 | 3.12 | 38 通过，Git Bash smoke 通过 |
+| Ubuntu x86_64 | 3.11 | 37 通过，Windows 专用项跳过 |
+| Ubuntu x86_64 | 3.12 | 37 通过，Windows 专用项跳过 |
+| Ubuntu 24.04 ARM64 | 3.12 | 37 通过，Windows 专用项跳过 |
+
+最终矩阵全部通过，并保留各平台构建的 npm tgz artifact。开发过程中修复了 Windows npm 自身 wrapper 的解析，并将短路径/完整路径的测试断言改为规范化路径比较。HTML 与 Markdown 均对动态证据转义。
+
+## 需求验收边界
+
+| 场景 | 状态 |
 | --- | --- |
-| 仓库读取与初始基线 | 已核对，初始内容为 README 与 LICENSE。 |
-| 参考版本 | 已查询并固定，见 references.md。 |
-| 文档链接、契约一致性和 whitespace | 8 个 UTF-8 Markdown 文件、15 个相对链接及 U01-U13/A01-A10 完整性检查通过；已复核职责、阶段、状态与路径口径，提交前执行 Git whitespace 检查。 |
-| Python 业务单元测试 | 尚无实现，未执行。 |
-| npm 包与离线安装 | 尚无实现，未验证。 |
-| Windows 真实 Agent 与进程清理 | 未验证；当前开发环境为 Linux。 |
-| Linux x86_64/ARM64 支持 | 后续阶段目标，尚未验证。 |
+| A01 安装、中文/空格路径 | Windows/Linux CI 通过；没有将 Server runner 等同于用户桌面环境 |
+| A02-A03 静态检查及动态阻断 | 自动化通过 |
+| A04 真实 Claude Code 代表业务用例 | 未执行；当前环境无 Claude/模型认证 |
+| A05 通用自定义执行器 | 模拟协议及三个示例通过；具体私有 Agent 需自己的适配器 |
+| A06 超时、异常、取消、评分失败 | Windows/Linux 自动化通过 |
+| A07 重复与对照 | 模拟执行器通过；真实 Claude safe-mode 的对照仍需验收 |
+| A08 评测不改源 Skill | 自动化通过 |
+| A09 主动改进闭环 | 配套 Skill、父运行、失败/全量回归已实现；真实对话演进尚未实测 |
+| A10 移动报告后离线阅读 | 自动化通过 |
 
-## 已知限制与待验证项
+## 尚未发生的外部动作
 
-Python 3.12、Linux x86_64/ARM64 是工程候选基线，不是已经验收的兼容声明。npm 包名与内部发布配置在首次发布前确定。自定义执行器的真实接入依赖对方实现协议，首版以通用命令契约和示例执行器证明扩展路径。
+- 没有执行真实 Claude 模型调用，也不需要用户向开发者提供模型凭据。可在已有 Agent 的机器执行 scripts/verify_claude.py，并继续运行真实业务用例。
+- 内部 npm 尚未发布。构建产物和命令已具备；发布需实际 registry、scope、授权账号，沿用用户本机 npm 配置。没有发布到 npmjs.org。
+- Claude 嵌套启动保护、项目专属配置、全局 Skill 暴露等行为有明确入口和限制，但模型环境的最终验收不能由模拟测试代替。
 
-Claude Code 在用户 Windows 上已可使用，但本工具如何在独立工作区调用它、如何排除全局目标 Skill 与宿主上下文，仍须实测。报告不能将缺少控制条件的对照标为有效。
+## 后续演进
 
-后续每个阶段更新本文件，记录实际代码、测试与未完成项，不用设计完成代替功能完成。
+P1-P4 功能完成；P5 的 Linux、P6 的 CI 基础提前完成。真实 Agent 验收后再声明整个用户环境已验收。HTTP 适配器、32 位 Linux、上游配置导入、复杂多轮、OS 沙箱及并发评测为后续能力。

@@ -1,0 +1,10 @@
+id: names
+title: Trim and uppercase names
+input:
+  prompt: "Normalize: Alice, bob, , CAROL"
+judge:
+  type: rule
+  assertions:
+    - type: json_equals
+      pointer: /names
+      value: [ALICE, BOB, CAROL]

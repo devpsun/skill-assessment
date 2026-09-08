@@ -18,7 +18,7 @@ Python 内核负责确定性的流程控制、执行、评分与报告；配套 
 
 ## D03：用户安装 Python，npm 携带离线工具依赖
 
-状态：网络与用户可安装 Python 为用户确认；wheelhouse + 专用 venv 为初始工程方案。
+状态：已实现并通过离线安装测试。wheelhouse + 专用 venv，纯 Python bundle。
 
 不要求使用者免装 Python，因此首版先验证 wheel 和依赖随 npm 包交付。安装时仅读取包内依赖，运行使用专用环境。保持工具环境与用户已有 Python 包隔离。
 
@@ -26,7 +26,7 @@ Python 内核负责确定性的流程控制、执行、评分与报告；配套 
 
 ## D04：Windows 优先，平台范围诚实标注
 
-状态：优先级为用户确认；版本基线为候选。
+状态：Windows x64、Linux x86_64 / ARM64 CI 已验证。Python 最低 3.11，Node 最低 20；CI 实测 Python 3.11/3.12、Node 22。
 
 Python 3.12 作为 P1 初始验证候选，不代表用户硬性要求，也不代表其他版本已受支持。Node 最低版本在 launcher 所需 API 与实际环境验证后确定。Windows 桌面版、Git Bash 和原生命令启动路径需记录实际测试版本。
 
@@ -74,3 +74,22 @@ JSON 是规范化结果，Markdown/HTML 是阅读视图。保存独立试验、�
 | Linux 发行版、libc 和 32 位架构是否需要 | P5 | 否。 |
 
 没有待用户补充的模型服务配置或业务样例阻塞当前设计与技术验证。
+
+
+## D09：纯 Python 分发与 vendoring（2026-09-08）
+
+PyYAML 6.0.3 的纯 Python 文件置于私有 vendor 命名空间，保留 MIT 许可及逐文件哈希；不包含 C 扩展。其余核心及构建只用标准库，避免 Windows/Linux/架构特定 wheel 下载。完整依赖随项目 wheel 进入 npm，首次运行通过 ensurepip + pip --no-index / --require-hashes 安装。更新依赖时复核许可、哈希、纯 Python 性质和跨平台 CI。
+
+Python 3.11+、Node 20+ 为实现下限。3.11/3.12 和 Node 22 已进入 Windows/Linux CI，当前本地另验证 Python 3.12.13 与 Node 24.19.0。其他版本不以安装要求代替实际验收。
+
+## D10：Claude 配置继承、显式调用与比较（2026-09-08）
+
+默认 inherited 沿用用户级/环境配置；项目设置可通过 settings_file 明确传给 Claude，自身不读取并归档配置内容。controlled 使用官方 --safe-mode，显式提示读取被测 Skill；不测自然触发。旧版不支持时直接报告执行错误。
+
+评分会话独立，并收到原始任务、rubric、输出与产物。缺少模型/Token 信息保留 null。Claude 的嵌套会话保护保持有效；触发限制的版本改从独立终端运行 CLI，不修改环境去消除保护。这个限制属于待真实 Agent 验收事项。
+
+## D11：目标质量与对照分开统计（2026-09-08）
+
+result.quality 仅统计 with_skill；summary 为全体试验，benchmark 分组。对照组功能失败作为测量结果保留，不触发目标质量失败码；任何执行或评分错误仍返回 2。JUnit 将对照组功能失败标为 skipped，JSON 保留真实 failed 状态与证据。
+
+用例、标准、脚本、fixture、执行配置或工具版本变化会使父运行比较不可比。Skill 内容摘要独立记录以支持改进回归。可比只针对已记录条件，不能证明远端模型服务或用户环境完全不变。

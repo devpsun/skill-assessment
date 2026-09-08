@@ -1,0 +1,8 @@
+id: sum
+input:
+  prompt: Sum 2, 4, and 6 using the bundled script.
+judge:
+  type: rule
+  assertions:
+    - type: regex
+      value: "^12$"
