@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+.coverage
+dist/
+build/
+*.egg-info/
+node_modules/
+*.tgz
+.skill-assessment-runs/

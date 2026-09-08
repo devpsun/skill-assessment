@@ -1,0 +1,15 @@
+[build-system]
+requires = []
+build-backend = "build_backend"
+backend-path = ["."]
+
+[project]
+name = "skill-assessment"
+version = "0.1.0"
+description = "Reproducible Skill evaluation with a Python CLI and companion Skill"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+
+[project.scripts]
+skill-assessment = "skill_assessment.cli:main"

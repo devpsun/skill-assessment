@@ -1,0 +1,17 @@
+id: sales
+input:
+  prompt: Summarize sales.csv into summary.json.
+fixtures:
+  - source: fixtures/sales.csv
+    destination: sales.csv
+judge:
+  type: rule
+  assertions:
+    - type: file_json_equals
+      path: summary.json
+      pointer: /count
+      value: 3
+    - type: file_json_equals
+      path: summary.json
+      pointer: /total
+      value: 125

@@ -1,0 +1,11 @@
+schema_version: "1"
+skill:
+  path: ".."
+engine:
+  type: local
+  command: ["{python}", "{config_dir}/../../fixture_engine.py", "{input_file}", "{output_file}"]
+  isolation: controlled
+cases:
+  files: [cases/names.yaml]
+report:
+  formats: [json, markdown, html, junit]

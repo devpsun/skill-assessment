@@ -1,0 +1,11 @@
+{
+  "name": "skill-assessment",
+  "version": "0.1.0",
+  "description": "Python Skill quality evaluation CLI and companion Skill",
+  "license": "Apache-2.0",
+  "bin": {"skill-assessment": "bin/skill-assessment.js"},
+  "engines": {"node": ">=20"},
+  "files": ["bin", "python", "wheelhouse", "examples", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
+  "scripts": {"build": "python scripts/build_npm.py", "test": "python -m unittest discover -s tests -v"},
+  "repository": {"type": "git", "url": "https://github.com/devpsun/skill-assessment.git"}
+}
